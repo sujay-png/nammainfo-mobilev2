@@ -112,6 +112,14 @@ class Profile {
   final String slug;
   final DateTime createdAt;
 
+  /// The business/company logo shown on the digital card (distinct from
+  /// [avatarUrl], which is the owner's own photo).
+  final String? logoUrl;
+
+  /// False until the user has completed the "design your own card" wizard
+  /// at least once — see CardOnboardingWizard / MyCardScreen.
+  final bool cardDesigned;
+
   // --- Extended "smart card" fields (Figma parity) ---
   // These are parsed defensively (default to empty/null) so the app keeps
   // working even before the matching Supabase columns/tables exist.
@@ -145,6 +153,8 @@ class Profile {
     this.bio,
     this.avatarUrl,
     this.coverUrl,
+    this.logoUrl,
+    this.cardDesigned = false,
     this.username,
     this.isMember = false,
     this.membershipExpiresAt,
@@ -193,6 +203,8 @@ class Profile {
         bio: map['bio'] as String?,
         avatarUrl: map['avatar_url'] as String?,
         coverUrl: map['cover_url'] as String?,
+        logoUrl: map['logo_url'] as String?,
+        cardDesigned: map['card_designed'] as bool? ?? false,
         slug: map['slug'] as String,
         createdAt: DateTime.parse(map['created_at'] as String),
         username: map['username'] as String?,
@@ -234,6 +246,7 @@ class Profile {
         if (website != null) 'website': website,
         if (bio != null) 'bio': bio,
         if (avatarUrl != null) 'avatar_url': avatarUrl,
+        if (logoUrl != null) 'logo_url': logoUrl,
       };
 
   Profile copyWith({
@@ -246,6 +259,8 @@ class Profile {
     String? bio,
     String? avatarUrl,
     String? coverUrl,
+    String? logoUrl,
+    bool? cardDesigned,
     String? username,
     bool? isMember,
     DateTime? membershipExpiresAt,
@@ -274,6 +289,8 @@ class Profile {
       bio: bio ?? this.bio,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       coverUrl: coverUrl ?? this.coverUrl,
+      logoUrl: logoUrl ?? this.logoUrl,
+      cardDesigned: cardDesigned ?? this.cardDesigned,
       username: username ?? this.username,
       isMember: isMember ?? this.isMember,
       membershipExpiresAt: membershipExpiresAt ?? this.membershipExpiresAt,

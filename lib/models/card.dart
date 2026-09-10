@@ -6,6 +6,11 @@ class BusinessCard {
   final int tapCount;
   final DateTime createdAt;
 
+  /// True once this profile has actually ordered a physical NFC card from
+  /// us. Until then there's no physical chip to write to, so the "Write to
+  /// physical NFC card" action stays hidden — see MyCardScreen.
+  final bool physicalCardOrdered;
+
   const BusinessCard({
     required this.id,
     required this.profileId,
@@ -13,6 +18,7 @@ class BusinessCard {
     required this.isActive,
     required this.tapCount,
     required this.createdAt,
+    this.physicalCardOrdered = false,
   });
 
   factory BusinessCard.fromMap(Map<String, dynamic> map) => BusinessCard(
@@ -22,6 +28,7 @@ class BusinessCard {
         isActive: map['is_active'] as bool,
         tapCount: map['tap_count'] as int,
         createdAt: DateTime.parse(map['created_at'] as String),
+        physicalCardOrdered: map['physical_card_ordered'] as bool? ?? false,
       );
 
   /// The URL written to the physical NFC chip / encoded in the QR code.

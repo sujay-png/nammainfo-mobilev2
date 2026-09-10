@@ -10,7 +10,8 @@ import '../../core/providers.dart';
 import '../../core/env.dart';
 import '../../core/theme.dart';
 import '../../models/card.dart';
-import '../profile/widgets/live_card_preview.dart';
+import 'widgets/business_card_flip.dart';
+import 'card_onboarding_wizard.dart';
 import '../profile/widgets/accordion_section.dart';
 import '../profile/widgets/about_stats_section.dart';
 import '../profile/widgets/services_section.dart';
@@ -90,6 +91,11 @@ class _MyCardScreenState extends ConsumerState<MyCardScreen> {
         data: (profile) {
           if (profile == null) return const SizedBox.shrink();
 
+          // First-time users design their card before seeing anything else.
+          if (!profile.cardDesigned) {
+            return const CardOnboardingWizard();
+          }
+
           return cardAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Center(child: Text('$e')),
@@ -101,7 +107,18 @@ class _MyCardScreenState extends ConsumerState<MyCardScreen> {
               return ListView(
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
                 children: [
-                  LiveCardPreview(profile: profile),
+                  BusinessCardFlip(
+                    profile: profile,
+                    qrData: url,
+                    nfcActive: card.physicalCardOrdered,
+                  ),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: Text(
+                      'Tap the card to flip it',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
 
                   // Free-account completion banner (Figma: non-member flow).
                   if (!profile.isMember) ...[
@@ -136,21 +153,26 @@ class _MyCardScreenState extends ConsumerState<MyCardScreen> {
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    onPressed: _writing ? null : () => _writeToPhysicalCard(url),
-                    icon: _writing
-                        ? const SizedBox(
-                            height: 16,
-                            width: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.nfc, size: 18),
-                    label: Text(_writing ? 'Hold card near phone…' : 'Write to physical NFC card'),
-                  ),
-                  const SizedBox(height: 10),
+                  // A physical NFC chip only exists once the user has
+                  // ordered one — nothing to write to before that, so this
+                  // action stays hidden until then.
+                  if (card.physicalCardOrdered) ...[
+                    ElevatedButton.icon(
+                      onPressed: _writing ? null : () => _writeToPhysicalCard(url),
+                      icon: _writing
+                          ? const SizedBox(
+                              height: 16,
+                              width: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.nfc, size: 18),
+                      label: Text(_writing ? 'Hold card near phone…' : 'Write to physical NFC card'),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                   OutlinedButton.icon(
                     onPressed: () => Share.share(url),
                     icon: const Icon(Icons.ios_share, size: 18),

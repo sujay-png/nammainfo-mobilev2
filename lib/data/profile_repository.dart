@@ -35,11 +35,13 @@ class ProfileRepository {
 
   /// Uploads to the `avatars` storage bucket under the user's own folder
   /// (matches typical `storage.objects` RLS keyed on `auth.uid()` as the
-  /// first path segment) and returns the public URL.
-  Future<String> uploadAvatar(String userId, String localPath) async {
+  /// first path segment) and returns the public URL. [prefix] distinguishes
+  /// an owner photo ('avatar') from a company logo ('logo') within the same
+  /// bucket/folder.
+  Future<String> uploadAvatar(String userId, String localPath, {String prefix = 'avatar'}) async {
     final fileExt = localPath.split('.').last;
     final path =
-        '$userId/avatar_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+        '$userId/${prefix}_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
 
     await _client.storage.from('avatars').upload(
           path,
