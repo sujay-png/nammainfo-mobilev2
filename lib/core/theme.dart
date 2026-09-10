@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+
+/// Text styles for the two bundled font families (see pubspec.yaml's
+/// `fonts:` section / assets/fonts/) — a thin drop-in replacement for the
+/// GoogleFonts.manrope()/inter() helpers that used to fetch these at
+/// runtime.
+TextStyle _manrope() => const TextStyle(fontFamily: 'Manrope');
+TextStyle _inter() => const TextStyle(fontFamily: 'Inter');
 
 /// Monochrome professional palette — pure black / white / gray.
 /// No brand colour accents; hierarchy comes from weight, size and
@@ -48,8 +54,8 @@ class AppRadii {
 
 ThemeData buildAppTheme() {
   final base = ThemeData(brightness: Brightness.light, useMaterial3: true);
-  final display = GoogleFonts.manrope();
-  final body = GoogleFonts.inter();
+  final display = _manrope();
+  final body = _inter();
 
   return base.copyWith(
     scaffoldBackgroundColor: AppColors.white,
@@ -191,8 +197,8 @@ ThemeData buildAppTheme() {
 /// Appearance.
 ThemeData buildAppDarkTheme() {
   final light = buildAppTheme();
-  final display = GoogleFonts.manrope();
-  final body = GoogleFonts.inter();
+  final display = _manrope();
+  final body = _inter();
 
   return light.copyWith(
     brightness: Brightness.dark,

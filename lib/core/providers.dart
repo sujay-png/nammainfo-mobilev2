@@ -6,6 +6,7 @@ import '../data/profile_repository.dart';
 import '../data/card_repository.dart';
 import '../data/connections_repository.dart';
 import '../data/posts_repository.dart';
+import '../data/card_orders_repository.dart';
 import '../models/profile.dart';
 
 final supabaseClientProvider = Provider<SupabaseClient>((ref) => supabase);
@@ -21,6 +22,9 @@ final connectionsRepositoryProvider = Provider(
 );
 final postsRepositoryProvider = Provider(
   (ref) => PostsRepository(ref.watch(supabaseClientProvider)),
+);
+final cardOrdersRepositoryProvider = Provider(
+  (ref) => CardOrdersRepository(ref.watch(supabaseClientProvider)),
 );
 
 /// Emits the current Supabase auth session, including on sign in/out —

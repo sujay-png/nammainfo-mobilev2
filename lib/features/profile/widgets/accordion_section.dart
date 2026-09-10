@@ -10,6 +10,7 @@ class AccordionSection extends StatefulWidget {
   final int? count;
   final Widget child;
   final bool initiallyExpanded;
+  final VoidCallback? onEdit;
 
   const AccordionSection({
     super.key,
@@ -18,6 +19,7 @@ class AccordionSection extends StatefulWidget {
     required this.child,
     this.count,
     this.initiallyExpanded = false,
+    this.onEdit,
   });
 
   @override
@@ -67,6 +69,17 @@ class _AccordionSectionState extends State<AccordionSection> {
                       ),
                     ),
                     const SizedBox(width: 10),
+                  ],
+                  if (widget.onEdit != null) ...[
+                    InkWell(
+                      borderRadius: BorderRadius.circular(999),
+                      onTap: widget.onEdit,
+                      child: const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: Icon(Icons.edit_outlined, size: 17, color: AppColors.gray500),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
                   ],
                   AnimatedRotation(
                     turns: _expanded ? 0.5 : 0,

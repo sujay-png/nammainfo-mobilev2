@@ -351,9 +351,14 @@ class _CardBack extends StatelessWidget {
                     data: qrData,
                     size: 68,
                     backgroundColor: Colors.transparent,
-                    eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square),
-                    dataModuleStyle:
-                        const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square),
+                    eyeStyle: const QrEyeStyle(
+                      eyeShape: QrEyeShape.square,
+                      color: AppColors.black,
+                    ),
+                    dataModuleStyle: const QrDataModuleStyle(
+                      dataModuleShape: QrDataModuleShape.square,
+                      color: AppColors.black,
+                    ),
                   ),
                 ),
               ],
