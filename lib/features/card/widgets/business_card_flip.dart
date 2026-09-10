@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 
 import '../../../core/theme.dart';
 import '../../../models/profile.dart';
@@ -40,6 +42,14 @@ class _BusinessCardFlipState extends State<BusinessCardFlip>
 
   bool _showingBack = false;
 
+  // Gyroscope-driven 3D tilt (accelerometer-based — feels like device tilt,
+  // without the drift a raw gyro integration would need). Smoothed toward
+  // the latest reading each frame rather than snapping, so it feels like
+  // physical inertia instead of jitter.
+  double _tiltX = 0;
+  double _tiltY = 0;
+  StreamSubscription<AccelerometerEvent>? _accelSub;
+
   void _flip() {
     if (_controller.isAnimating) return;
     setState(() => _showingBack = !_showingBack);
@@ -51,7 +61,37 @@ class _BusinessCardFlipState extends State<BusinessCardFlip>
   }
 
   @override
+  void initState() {
+    super.initState();
+    try {
+      _accelSub = accelerometerEventStream(
+        samplingPeriod: SensorInterval.uiInterval,
+      ).listen(
+        (event) {
+          if (!mounted) return;
+          // event.x/y are in m/s² (gravity ≈ 9.8) — normalize to -1..1,
+          // scale down to a subtle tilt range, then ease toward it.
+          final targetY = (event.x / 9.8).clamp(-1.0, 1.0) * 0.16;
+          final targetX = (-event.y / 9.8).clamp(-1.0, 1.0) * 0.10;
+          setState(() {
+            _tiltY += (targetY - _tiltY) * 0.12;
+            _tiltX += (targetX - _tiltX) * 0.12;
+          });
+        },
+        onError: (_) {
+          // No motion sensor on this device/emulator — the card just
+          // stays flat, flip-to-view-back still works fine.
+        },
+        cancelOnError: true,
+      );
+    } catch (_) {
+      // Sensor unavailable — degrade gracefully, no tilt.
+    }
+  }
+
+  @override
   void dispose() {
+    _accelSub?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -85,7 +125,8 @@ class _BusinessCardFlipState extends State<BusinessCardFlip>
               alignment: Alignment.center,
               transform: Matrix4.identity()
                 ..setEntry(3, 2, 0.0014)
-                ..rotateY(angle),
+                ..rotateX(_tiltX)
+                ..rotateY(angle + _tiltY),
               child: content,
             );
           },

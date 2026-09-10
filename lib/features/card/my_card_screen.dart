@@ -263,23 +263,29 @@ class _SharePanel extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.gray100,
-                  borderRadius: BorderRadius.circular(AppRadii.sm),
-                ),
-                child: QrImageView(
-                  data: url,
-                  size: 96,
-                  backgroundColor: Colors.transparent,
-                  eyeStyle: const QrEyeStyle(
-                    eyeShape: QrEyeShape.square,
-                    color: AppColors.black,
-                  ),
-                  dataModuleStyle: const QrDataModuleStyle(
-                    dataModuleShape: QrDataModuleShape.square,
-                    color: AppColors.black,
+              GestureDetector(
+                onTap: () => _showEnlargedQr(context, url),
+                child: Hero(
+                  tag: 'card-qr-$url',
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.gray100,
+                      borderRadius: BorderRadius.circular(AppRadii.sm),
+                    ),
+                    child: QrImageView(
+                      data: url,
+                      size: 96,
+                      backgroundColor: Colors.transparent,
+                      eyeStyle: const QrEyeStyle(
+                        eyeShape: QrEyeShape.square,
+                        color: AppColors.black,
+                      ),
+                      dataModuleStyle: const QrDataModuleStyle(
+                        dataModuleShape: QrDataModuleShape.square,
+                        color: AppColors.black,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -352,6 +358,104 @@ class _SharePanel extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  void _showEnlargedQr(BuildContext context, String url) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black.withValues(alpha: 0.001), // scrim animates in via transitionBuilder
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return _EnlargedQrDialog(url: url, animation: animation);
+        },
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutBack, reverseCurve: Curves.easeIn);
+          return FadeTransition(
+            opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+            child: Container(
+              color: Colors.black.withValues(alpha: 0.7 * animation.value.clamp(0.0, 1.0)),
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.7, end: 1).animate(curved),
+                child: child,
+              ),
+            ),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 380),
+        reverseTransitionDuration: const Duration(milliseconds: 260),
+      ),
+    );
+  }
+}
+
+/// Full-screen enlarged QR shown after tapping the small preview — grows out
+/// of the same Hero so the transition feels like the code is expanding in
+/// place rather than a plain dialog popping up.
+class _EnlargedQrDialog extends StatelessWidget {
+  final String url;
+  final Animation<double> animation;
+  const _EnlargedQrDialog({required this.url, required this.animation});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.of(context).pop(),
+      behavior: HitTestBehavior.opaque,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Center(
+          child: GestureDetector(
+            onTap: () {}, // absorb taps on the card itself
+            child: Hero(
+              tag: 'card-qr-$url',
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 36),
+                padding: const EdgeInsets.all(28),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(AppRadii.xl),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      blurRadius: 40,
+                      offset: const Offset(0, 16),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    QrImageView(
+                      data: url,
+                      size: 240,
+                      backgroundColor: Colors.transparent,
+                      eyeStyle: const QrEyeStyle(
+                        eyeShape: QrEyeShape.square,
+                        color: AppColors.black,
+                      ),
+                      dataModuleStyle: const QrDataModuleStyle(
+                        dataModuleShape: QrDataModuleShape.square,
+                        color: AppColors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Scan to open my card',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Tap anywhere to close',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.gray400),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -447,24 +551,12 @@ class _CompletionBanner extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: pct >= 80
-                      ? () {}
-                      : null,
-                  child: const Text('Preview card', style: TextStyle(fontSize: 12)),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () => _showMembershipSheet(context),
-                  child: const Text('Activate membership', style: TextStyle(fontSize: 12)),
-                ),
-              ),
-            ],
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => _showMembershipSheet(context),
+              child: const Text('Activate membership', style: TextStyle(fontSize: 12)),
+            ),
           ),
         ],
       ),

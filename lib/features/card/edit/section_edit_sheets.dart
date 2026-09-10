@@ -174,16 +174,29 @@ class _AddButton extends StatelessWidget {
   }
 }
 
-Future<void> _saveAndClose(
+/// Returns true on success, false on failure (and shows the error instead
+/// of failing silently — a save that neither closes the sheet nor tells
+/// the user why looks exactly like "nothing got saved").
+Future<bool> _saveAndClose(
   BuildContext context,
   WidgetRef ref,
   Map<String, dynamic> patch,
 ) async {
   final userId = ref.read(currentUserIdProvider);
-  if (userId == null) return;
-  await ref.read(profileRepositoryProvider).updateOwn(userId, patch);
-  ref.invalidate(myProfileProvider);
-  if (context.mounted) Navigator.of(context).pop();
+  if (userId == null) return false;
+  try {
+    await ref.read(profileRepositoryProvider).updateOwn(userId, patch);
+    ref.invalidate(myProfileProvider);
+    if (context.mounted) Navigator.of(context).pop();
+    return true;
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Couldn\'t save: $e')),
+      );
+    }
+    return false;
+  }
 }
 
 // ---------------------------------------------------------------------------

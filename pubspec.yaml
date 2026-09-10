@@ -49,6 +49,9 @@ dependencies:
   # Save a tapped card to the phone's native address book
   flutter_contacts: ^1.1.9+2
 
+  # Gyroscope-driven 3D tilt on the business card
+  sensors_plus: ^6.1.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
