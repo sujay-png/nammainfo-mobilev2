@@ -34,3 +34,10 @@
         android:host="nammainfo.com"
         android:pathPrefix="/c" />
 </intent-filter>
+
+<!-- Added for: QR scanner (mobile_scanner) + "Skip & Save to Contacts"
+     (flutter_contacts) -->
+<uses-permission android:name="android.permission.CAMERA" />
+<uses-feature android:name="android.hardware.camera" android:required="false" />
+<uses-permission android:name="android.permission.READ_CONTACTS" />
+<uses-permission android:name="android.permission.WRITE_CONTACTS" />

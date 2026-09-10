@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
@@ -69,6 +68,17 @@ String? routeForExternalUri(Uri uri) {
       uri.pathSegments.length >= 2 &&
       uri.pathSegments.first == 'c') {
     return '/c/${uri.pathSegments[1]}';
+  }
+  // https://nammainfo.com/<slug>  (the vanity link now written to new
+  // cards, e.g. /wrnxt — see Env.publicCardUrl). Any other single-segment
+  // path on the site that isn't a card just won't resolve in
+  // PublicCardScreen and shows "card not found", so this is safe even if
+  // the web app grows ordinary marketing pages later.
+  const reservedSlugs = {'c', 'api', 'profile', 'home', 'auth'};
+  if ((uri.scheme == 'https' || uri.scheme == 'http') &&
+      uri.pathSegments.length == 1 &&
+      !reservedSlugs.contains(uri.pathSegments.first)) {
+    return '/c/${uri.pathSegments.first}';
   }
   return null;
 }

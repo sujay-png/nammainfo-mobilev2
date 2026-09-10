@@ -36,3 +36,11 @@
   web app (fill in your real Team ID), is what makes tapped links open
   the app instead of Safari.
 -->
+
+<!-- Added for: QR scanner (mobile_scanner) -->
+<key>NSCameraUsageDescription</key>
+<string>Namma Info uses the camera to scan business card QR codes.</string>
+
+<!-- Added for: "Skip & Save to Contacts" (flutter_contacts) -->
+<key>NSContactsUsageDescription</key>
+<string>Namma Info saves the business card you tap or scan straight into your contacts.</string>

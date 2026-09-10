@@ -20,8 +20,11 @@ dependencies:
   # Backend
   supabase_flutter: ^2.6.0
 
-  # NFC
-  nfc_manager: 3.5.0
+  # NFC (4.x — needed for compatibility with current Kotlin/AGP toolchains;
+  # 3.5.0 fails to compile against newer Kotlin compilers)
+  nfc_manager: ^4.2.1
+  nfc_manager_ndef: ^1.1.0
+  ndef_record: ^1.4.2
 
   # Deep link fallback handling for links opened outside the app
   app_links: ^6.3.2
@@ -35,6 +38,15 @@ dependencies:
   url_launcher: ^6.3.0
   flutter_svg: ^2.0.10+1
   qr_flutter: ^4.1.0
+
+  # QR scanning
+  mobile_scanner: ^6.0.2
+
+  # Local prefs (theme mode, contact tags, notification toggle)
+  shared_preferences: ^2.3.3
+
+  # Save a tapped card to the phone's native address book
+  flutter_contacts: ^1.1.9+2
 
 dev_dependencies:
   flutter_test:

@@ -6,6 +6,7 @@ import 'package:app_links/app_links.dart';
 
 import 'core/supabase_client.dart';
 import 'core/theme.dart';
+import 'core/theme_provider.dart';
 import 'core/router.dart';
 
 Future<void> main() async {
@@ -14,14 +15,14 @@ Future<void> main() async {
   runApp(const ProviderScope(child: NammaInfoApp()));
 }
 
-class NammaInfoApp extends StatefulWidget {
+class NammaInfoApp extends ConsumerStatefulWidget {
   const NammaInfoApp({super.key});
 
   @override
-  State<NammaInfoApp> createState() => _NammaInfoAppState();
+  ConsumerState<NammaInfoApp> createState() => _NammaInfoAppState();
 }
 
-class _NammaInfoAppState extends State<NammaInfoApp> {
+class _NammaInfoAppState extends ConsumerState<NammaInfoApp> {
   late final GoRouter _router;
   final _appLinks = AppLinks();
   StreamSubscription<Uri>? _linkSub;
@@ -59,10 +60,13 @@ class _NammaInfoAppState extends State<NammaInfoApp> {
 
   @override
   Widget build(BuildContext context) {
+    final themeMode = ref.watch(themeModeProvider);
     return MaterialApp.router(
       title: 'Namma Info',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
+      darkTheme: buildAppDarkTheme(),
+      themeMode: themeMode,
       routerConfig: _router,
     );
   }
