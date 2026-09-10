@@ -1,306 +1,326 @@
-import 'dart:async';
-import 'dart:math' as math;
-
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:qr_flutter/qr_flutter.dart';
-import 'package:sensors_plus/sensors_plus.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
+import '../../../core/providers.dart';
 import '../../../core/theme.dart';
 import '../../../models/profile.dart';
+import '../../profile/widgets/social_links_section.dart' show iconForPlatform;
 
-/// The physical-card-style digital business card shown at the top of
-/// "My Card". Tap it to flip between the front (personal/contact side)
-/// and the back (company branding + NFC/QR side) with a smooth 3D
-/// rotation, mirroring a real plastic card.
-class BusinessCardFlip extends StatefulWidget {
-  final Profile profile;
-  final String qrData;
-  final bool nfcActive;
+// ---------------------------------------------------------------------------
+// Shared chrome
+// ---------------------------------------------------------------------------
 
-  const BusinessCardFlip({
-    super.key,
-    required this.profile,
-    required this.qrData,
-    this.nfcActive = false,
+Future<void> _showEditSheet(BuildContext context, Widget child) {
+  return showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: FractionallySizedBox(
+        heightFactor: 0.9,
+        child: Container(
+          decoration: const BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.xl)),
+          ),
+          child: child,
+        ),
+      ),
+    ),
+  );
+}
+
+class _SheetScaffold extends StatelessWidget {
+  final String title;
+  final Widget body;
+  final VoidCallback? onSave;
+  final bool saving;
+
+  const _SheetScaffold({
+    required this.title,
+    required this.body,
+    required this.onSave,
+    required this.saving,
   });
 
   @override
-  State<BusinessCardFlip> createState() => _BusinessCardFlipState();
-}
-
-class _BusinessCardFlipState extends State<BusinessCardFlip>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 550),
-  );
-  late final Animation<double> _animation = CurvedAnimation(
-    parent: _controller,
-    curve: Curves.easeInOutCubic,
-  );
-
-  bool _showingBack = false;
-
-  // Gyroscope-driven 3D tilt (accelerometer-based — feels like device tilt,
-  // without the drift a raw gyro integration would need). Smoothed toward
-  // the latest reading each frame rather than snapping, so it feels like
-  // physical inertia instead of jitter.
-  double _tiltX = 0;
-  double _tiltY = 0;
-  StreamSubscription<AccelerometerEvent>? _accelSub;
-
-  void _flip() {
-    if (_controller.isAnimating) return;
-    setState(() => _showingBack = !_showingBack);
-    if (_showingBack) {
-      _controller.forward();
-    } else {
-      _controller.reverse();
-    }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    try {
-      _accelSub = accelerometerEventStream(
-        samplingPeriod: SensorInterval.uiInterval,
-      ).listen(
-        (event) {
-          if (!mounted) return;
-          // event.x/y are in m/s² (gravity ≈ 9.8) — normalize to -1..1,
-          // scale down to a subtle tilt range, then ease toward it.
-          final targetY = (event.x / 9.8).clamp(-1.0, 1.0) * 0.16;
-          final targetX = (-event.y / 9.8).clamp(-1.0, 1.0) * 0.10;
-          setState(() {
-            _tiltY += (targetY - _tiltY) * 0.12;
-            _tiltX += (targetX - _tiltX) * 0.12;
-          });
-        },
-        onError: (_) {
-          // No motion sensor on this device/emulator — the card just
-          // stays flat, flip-to-view-back still works fine.
-        },
-        cancelOnError: true,
-      );
-    } catch (_) {
-      // Sensor unavailable — degrade gracefully, no tilt.
-    }
-  }
-
-  @override
-  void dispose() {
-    _accelSub?.cancel();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: _flip,
-      child: AspectRatio(
-        aspectRatio: 1.6,
-        child: AnimatedBuilder(
-          animation: _animation,
-          builder: (context, child) {
-            final angle = _animation.value * math.pi;
-            final showFront = angle < math.pi / 2;
-            final content = showFront
-                ? _CardFront(profile: widget.profile)
-                : Transform(
-                    alignment: Alignment.center,
-                    // Un-mirror the back face's content (it's inside a
-                    // parent already rotated ~180°).
-                    transform: Matrix4.identity()..rotateY(math.pi),
-                    child: _CardBack(
-                      profile: widget.profile,
-                      qrData: widget.qrData,
-                      nfcActive: widget.nfcActive,
-                    ),
-                  );
-
-            return Transform(
-              alignment: Alignment.center,
-              transform: Matrix4.identity()
-                ..setEntry(3, 2, 0.0014)
-                ..rotateX(_tiltX)
-                ..rotateY(angle + _tiltY),
-              child: content,
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-/// Shared card chrome — rounded, bordered, subtle shadow — used by both
-/// faces so front/back feel like one physical object.
-class _CardFace extends StatelessWidget {
-  final Widget child;
-  const _CardFace({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(AppRadii.xl),
-        border: Border.all(color: AppColors.gray200, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.16),
-            blurRadius: 22,
-            offset: const Offset(0, 10),
+    return Column(
+      children: [
+        const SizedBox(height: 10),
+        Container(
+          width: 36,
+          height: 4,
+          decoration: BoxDecoration(
+            color: AppColors.gray300,
+            borderRadius: BorderRadius.circular(99),
           ),
-        ],
-      ),
-      child: child,
-    );
-  }
-}
-
-class _CardFront extends StatelessWidget {
-  final Profile profile;
-  const _CardFront({required this.profile});
-
-  @override
-  Widget build(BuildContext context) {
-    final rows = <_ContactRowData>[
-      if (profile.phone?.isNotEmpty == true)
-        _ContactRowData(Icons.call_outlined, profile.phone!),
-      if (profile.email?.isNotEmpty == true)
-        _ContactRowData(Icons.mail_outline, profile.email!),
-      if (profile.website?.isNotEmpty == true)
-        _ContactRowData(Icons.public, profile.website!),
-    ];
-
-    return _CardFace(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      profile.ownerName?.isNotEmpty == true
-                          ? profile.ownerName!
-                          : 'Your name',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.black,
-                        fontSize: 21,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.2,
-                      ),
-                    ),
-                    if (profile.jobTitle?.isNotEmpty == true) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        profile.jobTitle!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.gray500,
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+              Text(title, style: Theme.of(context).textTheme.headlineSmall),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.of(context).pop(),
               ),
-              const SizedBox(width: 10),
-              _CompanyLogo(profile: profile, size: 38),
             ],
           ),
-          const SizedBox(height: 12),
-          Container(height: 1, color: AppColors.gray200),
-          const SizedBox(height: 12),
-          Expanded(
-            child: rows.isEmpty
-                ? Center(
-                    child: Text(
-                      'No contact details yet',
-                      style: TextStyle(color: AppColors.gray400, fontSize: 12),
-                    ),
-                  )
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      for (final row in rows) _ContactRow(data: row),
-                    ],
-                  ),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+            child: body,
           ),
-          if (profile.address?.isNotEmpty == true)
-            Row(
-              children: [
-                const Icon(Icons.place_outlined, size: 13, color: AppColors.gray500),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    profile.address!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: AppColors.gray500, fontSize: 11),
-                  ),
-                ),
-              ],
+        ),
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+            child: ElevatedButton(
+              onPressed: saving ? null : onSave,
+              child: saving
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('Save'),
             ),
-        ],
-      ),
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _ContactRowData {
-  final IconData icon;
-  final String text;
-  const _ContactRowData(this.icon, this.text);
-}
+class _TextField extends StatelessWidget {
+  final String label;
+  final TextEditingController controller;
+  final TextInputType? keyboardType;
+  final int maxLines;
 
-class _ContactRow extends StatelessWidget {
-  final _ContactRowData data;
-  const _ContactRow({required this.data});
+  const _TextField({
+    required this.label,
+    required this.controller,
+    this.keyboardType,
+    this.maxLines = 1,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        maxLines: maxLines,
+        decoration: InputDecoration(labelText: label),
+      ),
+    );
+  }
+}
+
+class _ItemCard extends StatelessWidget {
+  final Widget child;
+  final VoidCallback onDelete;
+  const _ItemCard({required this.child, required this.onDelete});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(AppRadii.md),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 22,
-            height: 22,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.black, width: 1),
-            ),
-            child: Icon(data.icon, size: 12, color: AppColors.black),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              data.text,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.ink900,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
+          Align(
+            alignment: Alignment.centerRight,
+            child: InkWell(
+              onTap: onDelete,
+              child: const Padding(
+                padding: EdgeInsets.all(4),
+                child: Icon(Icons.delete_outline, size: 18, color: AppColors.gray500),
               ),
             ),
+          ),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _AddButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _AddButton({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      icon: const Icon(Icons.add, size: 18),
+      label: Text(label),
+    );
+  }
+}
+
+/// Returns true on success, false on failure (and shows the error instead
+/// of failing silently — a save that neither closes the sheet nor tells
+/// the user why looks exactly like "nothing got saved").
+Future<bool> _saveAndClose(
+  BuildContext context,
+  WidgetRef ref,
+  Map<String, dynamic> patch,
+) async {
+  final userId = ref.read(currentUserIdProvider);
+  if (userId == null) return false;
+  try {
+    await ref.read(profileRepositoryProvider).updateOwn(userId, patch);
+    ref.invalidate(myProfileProvider);
+    if (context.mounted) Navigator.of(context).pop();
+    return true;
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Couldn\'t save: $e')),
+      );
+    }
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// About us
+// ---------------------------------------------------------------------------
+
+void showAboutEditSheet(BuildContext context, WidgetRef ref, Profile profile) {
+  _showEditSheet(context, _AboutEditBody(profile: profile));
+}
+
+class _AboutEditBody extends ConsumerStatefulWidget {
+  final Profile profile;
+  const _AboutEditBody({required this.profile});
+
+  @override
+  ConsumerState<_AboutEditBody> createState() => _AboutEditBodyState();
+}
+
+class _AboutEditBodyState extends ConsumerState<_AboutEditBody> {
+  late final _bioCtrl = TextEditingController(text: widget.profile.bio ?? '');
+  late final _yearsCtrl =
+      TextEditingController(text: widget.profile.yearsInBusiness?.toString() ?? '');
+  late final _clientsCtrl =
+      TextEditingController(text: widget.profile.clientsServed?.toString() ?? '');
+  late final _coverageCtrl = TextEditingController(text: widget.profile.coverageArea ?? '');
+  bool _saving = false;
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    await _saveAndClose(context, ref, {
+      'bio': _bioCtrl.text.trim(),
+      'years_in_business': int.tryParse(_yearsCtrl.text.trim()),
+      'clients_served': int.tryParse(_clientsCtrl.text.trim()),
+      'coverage_area': _coverageCtrl.text.trim(),
+    });
+    if (mounted) setState(() => _saving = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _SheetScaffold(
+      title: 'About us',
+      saving: _saving,
+      onSave: _save,
+      body: Column(
+        children: [
+          _TextField(label: 'Short description', controller: _bioCtrl, maxLines: 4),
+          _TextField(
+            label: 'Years in business',
+            controller: _yearsCtrl,
+            keyboardType: TextInputType.number,
+          ),
+          _TextField(
+            label: 'Clients served',
+            controller: _clientsCtrl,
+            keyboardType: TextInputType.number,
+          ),
+          _TextField(label: 'Coverage area', controller: _coverageCtrl),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Services & products
+// ---------------------------------------------------------------------------
+
+void showServicesEditSheet(BuildContext context, WidgetRef ref, Profile profile) {
+  _showEditSheet(context, _ServicesEditBody(profile: profile));
+}
+
+class _ServicesEditBody extends ConsumerStatefulWidget {
+  final Profile profile;
+  const _ServicesEditBody({required this.profile});
+
+  @override
+  ConsumerState<_ServicesEditBody> createState() => _ServicesEditBodyState();
+}
+
+class _ServicesEditBodyState extends ConsumerState<_ServicesEditBody> {
+  late List<_ServiceDraft> _items =
+      widget.profile.services.map(_ServiceDraft.from).toList();
+  bool _saving = false;
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    final services = _items
+        .where((d) => d.nameCtrl.text.trim().isNotEmpty)
+        .map((d) => ServiceItem(
+              name: d.nameCtrl.text.trim(),
+              description: d.descCtrl.text.trim().isEmpty ? null : d.descCtrl.text.trim(),
+              priceRange: d.priceCtrl.text.trim().isEmpty ? null : d.priceCtrl.text.trim(),
+              imageUrl: d.imageUrl,
+            ).toMap())
+        .toList();
+    await _saveAndClose(context, ref, {'services': services});
+    if (mounted) setState(() => _saving = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _SheetScaffold(
+      title: 'Services & products',
+      saving: _saving,
+      onSave: _save,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final item in _items)
+            _ItemCard(
+              onDelete: () => setState(() => _items.remove(item)),
+              child: Column(
+                children: [
+                  const SizedBox(height: 4),
+                  _TextField(label: 'Name', controller: item.nameCtrl),
+                  _TextField(label: 'Description', controller: item.descCtrl, maxLines: 2),
+                  _TextField(label: 'Price range', controller: item.priceCtrl),
+                ],
+              ),
+            ),
+          _AddButton(
+            label: 'Add service',
+            onTap: () => setState(() => _items.add(_ServiceDraft.empty())),
           ),
         ],
       ),
@@ -308,102 +328,130 @@ class _ContactRow extends StatelessWidget {
   }
 }
 
-class _CardBack extends StatelessWidget {
+class _ServiceDraft {
+  final TextEditingController nameCtrl;
+  final TextEditingController descCtrl;
+  final TextEditingController priceCtrl;
+  final String? imageUrl;
+
+  _ServiceDraft({required this.nameCtrl, required this.descCtrl, required this.priceCtrl, this.imageUrl});
+
+  factory _ServiceDraft.from(ServiceItem s) => _ServiceDraft(
+        nameCtrl: TextEditingController(text: s.name),
+        descCtrl: TextEditingController(text: s.description ?? ''),
+        priceCtrl: TextEditingController(text: s.priceRange ?? ''),
+        imageUrl: s.imageUrl,
+      );
+
+  factory _ServiceDraft.empty() => _ServiceDraft(
+        nameCtrl: TextEditingController(),
+        descCtrl: TextEditingController(),
+        priceCtrl: TextEditingController(),
+      );
+}
+
+// ---------------------------------------------------------------------------
+// Gallery
+// ---------------------------------------------------------------------------
+
+void showGalleryEditSheet(BuildContext context, WidgetRef ref, Profile profile) {
+  _showEditSheet(context, _GalleryEditBody(profile: profile));
+}
+
+class _GalleryEditBody extends ConsumerStatefulWidget {
   final Profile profile;
-  final String qrData;
-  final bool nfcActive;
-  const _CardBack({required this.profile, required this.qrData, required this.nfcActive});
+  const _GalleryEditBody({required this.profile});
+
+  @override
+  ConsumerState<_GalleryEditBody> createState() => _GalleryEditBodyState();
+}
+
+class _GalleryEditBodyState extends ConsumerState<_GalleryEditBody> {
+  late List<_GalleryDraft> _items =
+      widget.profile.gallery.map((g) => _GalleryDraft(url: g.imageUrl, label: g.label)).toList();
+  bool _saving = false;
+  bool _uploading = false;
+
+  Future<void> _addPhoto() async {
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null) return;
+    final picker = ImagePicker();
+    final file = await picker.pickImage(source: ImageSource.gallery, maxWidth: 1200, imageQuality: 85);
+    if (file == null) return;
+    setState(() => _uploading = true);
+    try {
+      final url =
+          await ref.read(profileRepositoryProvider).uploadAvatar(userId, file.path, prefix: 'gallery');
+      setState(() => _items.add(_GalleryDraft(url: url, label: null)));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Couldn\'t upload photo: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    final gallery = _items.map((d) => GalleryItem(imageUrl: d.url, label: d.label).toMap()).toList();
+    await _saveAndClose(context, ref, {'gallery': gallery});
+    if (mounted) setState(() => _saving = false);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return _CardFace(
-      child: Row(
+    return _SheetScaffold(
+      title: 'Gallery',
+      saving: _saving,
+      onSave: _save,
+      body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            flex: 6,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _CompanyLogo(profile: profile, size: 56),
-                const SizedBox(height: 12),
-                Text(
-                  profile.businessName?.isNotEmpty == true
-                      ? profile.businessName!
-                      : 'Your business',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.black,
-                    fontSize: 19,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.3,
-                    height: 1.1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            flex: 5,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (final item in _items)
+                Stack(
                   children: [
-                    Icon(
-                      Icons.nfc,
-                      size: 20,
-                      color: nfcActive ? AppColors.black : AppColors.gray300,
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(AppRadii.sm),
+                      child: Image.network(item.url, width: 90, height: 90, fit: BoxFit.cover),
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'NFC',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1,
-                        color: nfcActive ? AppColors.black : AppColors.gray300,
+                    Positioned(
+                      top: 2,
+                      right: 2,
+                      child: InkWell(
+                        onTap: () => setState(() => _items.remove(item)),
+                        child: Container(
+                          decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                          padding: const EdgeInsets.all(3),
+                          child: const Icon(Icons.close, size: 14, color: Colors.white),
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Namma Info',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.gray500,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.all(6),
+              InkWell(
+                onTap: _uploading ? null : _addPhoto,
+                borderRadius: BorderRadius.circular(AppRadii.sm),
+                child: Container(
+                  width: 90,
+                  height: 90,
+                  alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    border: Border.all(color: AppColors.gray200),
-                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.gray300),
+                    borderRadius: BorderRadius.circular(AppRadii.sm),
                   ),
-                  child: QrImageView(
-                    data: qrData,
-                    size: 68,
-                    backgroundColor: Colors.transparent,
-                    eyeStyle: const QrEyeStyle(
-                      eyeShape: QrEyeShape.square,
-                      color: AppColors.black,
-                    ),
-                    dataModuleStyle: const QrDataModuleStyle(
-                      dataModuleShape: QrDataModuleShape.square,
-                      color: AppColors.black,
-                    ),
-                  ),
+                  child: _uploading
+                      ? const SizedBox(
+                          height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.add_a_photo_outlined, color: AppColors.gray400),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -411,47 +459,268 @@ class _CardBack extends StatelessWidget {
   }
 }
 
-class _CompanyLogo extends StatelessWidget {
-  final Profile profile;
-  final double size;
-  const _CompanyLogo({required this.profile, required this.size});
+class _GalleryDraft {
+  final String url;
+  final String? label;
+  _GalleryDraft({required this.url, this.label});
+}
 
-  String _initials() {
-    final name = profile.businessName?.trim();
-    if (name == null || name.isEmpty) return 'NI';
-    final parts = name.split(RegExp(r'\s+')).take(2);
-    return parts.map((p) => p.isNotEmpty ? p[0].toUpperCase() : '').join();
+// ---------------------------------------------------------------------------
+// Social links
+// ---------------------------------------------------------------------------
+
+const _socialPlatforms = ['whatsapp', 'instagram', 'facebook', 'youtube', 'linkedin', 'custom'];
+
+void showSocialLinksEditSheet(BuildContext context, WidgetRef ref, Profile profile) {
+  _showEditSheet(context, _SocialLinksEditBody(profile: profile));
+}
+
+class _SocialLinksEditBody extends ConsumerStatefulWidget {
+  final Profile profile;
+  const _SocialLinksEditBody({required this.profile});
+
+  @override
+  ConsumerState<_SocialLinksEditBody> createState() => _SocialLinksEditBodyState();
+}
+
+class _SocialLinksEditBodyState extends ConsumerState<_SocialLinksEditBody> {
+  late List<_SocialDraft> _items = widget.profile.socialLinks.map(_SocialDraft.from).toList();
+  bool _saving = false;
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    final links = _items
+        .where((d) => d.urlCtrl.text.trim().isNotEmpty)
+        .map((d) => SocialLink(
+              platform: d.platform,
+              url: d.urlCtrl.text.trim(),
+              label: d.platform == 'custom' ? d.labelCtrl.text.trim() : null,
+            ).toMap())
+        .toList();
+    await _saveAndClose(context, ref, {'social_links': links});
+    if (mounted) setState(() => _saving = false);
   }
 
   @override
   Widget build(BuildContext context) {
-    final radius = size * 0.28;
-    if (profile.logoUrl?.isNotEmpty == true) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(radius),
-        child: CachedNetworkImage(
-          imageUrl: profile.logoUrl!,
-          width: size,
-          height: size,
-          fit: BoxFit.cover,
-        ),
-      );
-    }
-    return Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: AppColors.black, width: 1.2),
+    return _SheetScaffold(
+      title: 'Social links',
+      saving: _saving,
+      onSave: _save,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final item in _items)
+            _ItemCard(
+              onDelete: () => setState(() => _items.remove(item)),
+              child: Column(
+                children: [
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _socialPlatforms.map((p) {
+                      final selected = item.platform == p;
+                      return ChoiceChip(
+                        avatar: Icon(iconForPlatform(p), size: 14),
+                        label: Text(p),
+                        selected: selected,
+                        onSelected: (_) => setState(() => item.platform = p),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 10),
+                  if (item.platform == 'custom')
+                    _TextField(label: 'Label', controller: item.labelCtrl),
+                  _TextField(
+                    label: 'Link (https://...)',
+                    controller: item.urlCtrl,
+                    keyboardType: TextInputType.url,
+                  ),
+                ],
+              ),
+            ),
+          _AddButton(
+            label: 'Add link',
+            onTap: () => setState(() => _items.add(_SocialDraft.empty())),
+          ),
+        ],
       ),
-      child: Text(
-        _initials(),
-        style: TextStyle(
-          color: AppColors.black,
-          fontWeight: FontWeight.w800,
-          fontSize: size * 0.32,
-        ),
+    );
+  }
+}
+
+class _SocialDraft {
+  String platform;
+  final TextEditingController urlCtrl;
+  final TextEditingController labelCtrl;
+  _SocialDraft({required this.platform, required this.urlCtrl, required this.labelCtrl});
+
+  factory _SocialDraft.from(SocialLink l) => _SocialDraft(
+        platform: l.platform,
+        urlCtrl: TextEditingController(text: l.url),
+        labelCtrl: TextEditingController(text: l.label ?? ''),
+      );
+
+  factory _SocialDraft.empty() => _SocialDraft(
+        platform: 'whatsapp',
+        urlCtrl: TextEditingController(),
+        labelCtrl: TextEditingController(),
+      );
+}
+
+// ---------------------------------------------------------------------------
+// Banking info
+// ---------------------------------------------------------------------------
+
+void showBankingEditSheet(BuildContext context, WidgetRef ref, Profile profile) {
+  _showEditSheet(context, _BankingEditBody(profile: profile));
+}
+
+class _BankingEditBody extends ConsumerStatefulWidget {
+  final Profile profile;
+  const _BankingEditBody({required this.profile});
+
+  @override
+  ConsumerState<_BankingEditBody> createState() => _BankingEditBodyState();
+}
+
+class _BankingEditBodyState extends ConsumerState<_BankingEditBody> {
+  late List<_BankDraft> _items = widget.profile.bankAccounts.map(_BankDraft.from).toList();
+  bool _saving = false;
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    final accounts = _items
+        .where((d) => d.labelCtrl.text.trim().isNotEmpty)
+        .map((d) => BankAccount(
+              label: d.labelCtrl.text.trim(),
+              accountName: d.accountNameCtrl.text.trim().isEmpty ? null : d.accountNameCtrl.text.trim(),
+              accountNumber:
+                  d.accountNumberCtrl.text.trim().isEmpty ? null : d.accountNumberCtrl.text.trim(),
+              ifsc: d.ifscCtrl.text.trim().isEmpty ? null : d.ifscCtrl.text.trim(),
+              upiId: d.upiCtrl.text.trim().isEmpty ? null : d.upiCtrl.text.trim(),
+            ).toMap())
+        .toList();
+    await _saveAndClose(context, ref, {'bank_accounts': accounts});
+    if (mounted) setState(() => _saving = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _SheetScaffold(
+      title: 'Banking info',
+      saving: _saving,
+      onSave: _save,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final item in _items)
+            _ItemCard(
+              onDelete: () => setState(() => _items.remove(item)),
+              child: Column(
+                children: [
+                  const SizedBox(height: 4),
+                  _TextField(label: 'Label (e.g. UPI, GST billing)', controller: item.labelCtrl),
+                  _TextField(label: 'Account holder name', controller: item.accountNameCtrl),
+                  _TextField(
+                    label: 'Account number',
+                    controller: item.accountNumberCtrl,
+                    keyboardType: TextInputType.number,
+                  ),
+                  _TextField(label: 'IFSC', controller: item.ifscCtrl),
+                  _TextField(label: 'UPI ID', controller: item.upiCtrl),
+                ],
+              ),
+            ),
+          _AddButton(
+            label: 'Add account',
+            onTap: () => setState(() => _items.add(_BankDraft.empty())),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BankDraft {
+  final TextEditingController labelCtrl;
+  final TextEditingController accountNameCtrl;
+  final TextEditingController accountNumberCtrl;
+  final TextEditingController ifscCtrl;
+  final TextEditingController upiCtrl;
+
+  _BankDraft({
+    required this.labelCtrl,
+    required this.accountNameCtrl,
+    required this.accountNumberCtrl,
+    required this.ifscCtrl,
+    required this.upiCtrl,
+  });
+
+  factory _BankDraft.from(BankAccount a) => _BankDraft(
+        labelCtrl: TextEditingController(text: a.label),
+        accountNameCtrl: TextEditingController(text: a.accountName ?? ''),
+        accountNumberCtrl: TextEditingController(text: a.accountNumber ?? ''),
+        ifscCtrl: TextEditingController(text: a.ifsc ?? ''),
+        upiCtrl: TextEditingController(text: a.upiId ?? ''),
+      );
+
+  factory _BankDraft.empty() => _BankDraft(
+        labelCtrl: TextEditingController(),
+        accountNameCtrl: TextEditingController(),
+        accountNumberCtrl: TextEditingController(),
+        ifscCtrl: TextEditingController(),
+        upiCtrl: TextEditingController(),
+      );
+}
+
+// ---------------------------------------------------------------------------
+// Downloads & actions — just the brochure link for now.
+// ---------------------------------------------------------------------------
+
+void showBrochureEditSheet(BuildContext context, WidgetRef ref, Profile profile) {
+  _showEditSheet(context, _BrochureEditBody(profile: profile));
+}
+
+class _BrochureEditBody extends ConsumerStatefulWidget {
+  final Profile profile;
+  const _BrochureEditBody({required this.profile});
+
+  @override
+  ConsumerState<_BrochureEditBody> createState() => _BrochureEditBodyState();
+}
+
+class _BrochureEditBodyState extends ConsumerState<_BrochureEditBody> {
+  late final _urlCtrl = TextEditingController(text: widget.profile.brochureUrl ?? '');
+  bool _saving = false;
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    await _saveAndClose(context, ref, {'brochure_url': _urlCtrl.text.trim()});
+    if (mounted) setState(() => _saving = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _SheetScaffold(
+      title: 'Downloads & actions',
+      saving: _saving,
+      onSave: _save,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Add a link to a PDF brochure/catalogue — it\'ll show up as a download on your card.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 14),
+          _TextField(
+            label: 'Brochure link (https://...)',
+            controller: _urlCtrl,
+            keyboardType: TextInputType.url,
+          ),
+        ],
       ),
     );
   }
