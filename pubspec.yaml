@@ -1,0 +1,47 @@
+name: nammainfo_mobile
+description: Namma Info — digital business cards, NFC taps, and a business activity feed.
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # State management
+  flutter_riverpod: ^2.5.1
+
+  # Routing / deep links
+  go_router: ^14.2.7
+
+  # Backend
+  supabase_flutter: ^2.6.0
+
+  # NFC
+  nfc_manager: 3.5.0
+
+  # Deep link fallback handling for links opened outside the app
+  app_links: ^6.3.2
+
+  # UI / utility
+  google_fonts: ^6.2.1
+  cached_network_image: ^3.4.1
+  image_picker: ^1.1.2
+  intl: ^0.19.0
+  share_plus: ^10.0.2
+  url_launcher: ^6.3.0
+  flutter_svg: ^2.0.10+1
+  qr_flutter: ^4.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/

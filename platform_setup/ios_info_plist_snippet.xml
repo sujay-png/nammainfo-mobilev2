@@ -1,0 +1,38 @@
+<!--
+  Merge into ios/Runner/Info.plist (generated once you run
+  `flutter create .`), as direct children of the root <dict>.
+-->
+
+<!-- NFC -->
+<key>NFCReaderUsageDescription</key>
+<string>Namma Info uses NFC to write your digital card link to a physical card, and to read cards you tap.</string>
+
+<!-- Custom URL scheme: nammainfo://profile/... -->
+<key>CFBundleURLTypes</key>
+<array>
+    <dict>
+        <key>CFBundleURLName</key>
+        <string>com.nammainfo.app</string>
+        <key>CFBundleURLSchemes</key>
+        <array>
+            <string>nammainfo</string>
+        </array>
+    </dict>
+</array>
+
+<!--
+  NFC entitlement: in Xcode, Signing & Capabilities → + Capability →
+  "Near Field Communication Tag Reading". This writes
+  com.apple.developer.nfc.readersession.formats = [NDEF] into
+  Runner.entitlements for you — it does not go in Info.plist.
+
+  Universal Links (https://nammainfo.com/c/...) are also NOT set via
+  Info.plist — add this as a separate Capability in Xcode:
+
+    Signing & Capabilities → + Capability → Associated Domains
+    → applinks:nammainfo.com
+
+  That, plus a correct /.well-known/apple-app-site-association on the
+  web app (fill in your real Team ID), is what makes tapped links open
+  the app instead of Safari.
+-->

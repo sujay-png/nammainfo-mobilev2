@@ -1,0 +1,36 @@
+<!--
+  Merge into android/app/src/main/AndroidManifest.xml (generated once you
+  run `flutter create .` inside this project to add the native folders).
+-->
+
+<!-- Permissions — put alongside your other <uses-permission> tags,
+     as a direct child of <manifest>. -->
+<uses-permission android:name="android.permission.NFC" />
+<uses-feature android:name="android.hardware.nfc" android:required="false" />
+<uses-permission android:name="android.permission.INTERNET" />
+
+<!--
+  Intent filters — add inside your <activity android:name=".MainActivity" ...>
+  tag, alongside the existing LAUNCHER intent-filter.
+-->
+
+<!-- Custom scheme deep link: nammainfo://profile/... -->
+<intent-filter>
+    <action android:name="android.intent.action.VIEW" />
+    <category android:name="android.intent.category.DEFAULT" />
+    <category android:name="android.intent.category.BROWSABLE" />
+    <data android:scheme="nammainfo" />
+</intent-filter>
+
+<!-- Android App Links: https://nammainfo.com/c/... (autoVerify requires
+     assetlinks.json to be live at /.well-known/assetlinks.json on the
+     web app with your real release-key SHA256 fingerprint). -->
+<intent-filter android:autoVerify="true">
+    <action android:name="android.intent.action.VIEW" />
+    <category android:name="android.intent.category.DEFAULT" />
+    <category android:name="android.intent.category.BROWSABLE" />
+    <data
+        android:scheme="https"
+        android:host="nammainfo.com"
+        android:pathPrefix="/c" />
+</intent-filter>
