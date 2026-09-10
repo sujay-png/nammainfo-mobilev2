@@ -17,6 +17,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   bool _loading = false;
   String? _error;
 
+  // Shown instead of the form when sign-up succeeded but Supabase requires
+  // email confirmation before a session exists — without this the user
+  // would just be left staring at the form with no feedback at all.
+  bool _checkEmail = false;
+
   @override
   void dispose() {
     _emailCtrl.dispose();
@@ -34,18 +39,25 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     final client = ref.read(supabaseClientProvider);
     try {
       if (_isSignUp) {
-        await client.auth.signUp(
+        final response = await client.auth.signUp(
           email: _emailCtrl.text.trim(),
           password: _passwordCtrl.text,
         );
+        if (response.session == null && mounted) {
+          // Email confirmation is required on this project — there's no
+          // session yet, so go_router's redirect won't fire. Tell the user
+          // what to do instead of leaving them on a blank-looking form.
+          setState(() => _checkEmail = true);
+        }
+        // If a session did come back immediately, go_router's redirect
+        // (see core/router.dart) picks it up on its own.
       } else {
         await client.auth.signInWithPassword(
           email: _emailCtrl.text.trim(),
           password: _passwordCtrl.text,
         );
+        // go_router redirect picks up the new session automatically.
       }
-      // go_router redirect (see core/router.dart) picks up the new
-      // session automatically — nothing else to do here.
     } catch (e) {
       setState(() => _error = _friendlyError(e));
     } finally {
@@ -66,6 +78,45 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_checkEmail) {
+      return Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.mail_outline, size: 40),
+                  const SizedBox(height: 18),
+                  Text(
+                    'Check your email',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'We sent a confirmation link to ${_emailCtrl.text.trim()}. '
+                    'Open it, then come back and sign in.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 22),
+                  ElevatedButton(
+                    onPressed: () => setState(() {
+                      _checkEmail = false;
+                      _isSignUp = false;
+                    }),
+                    child: const Text('Back to sign in'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       body: SafeArea(
         child: Center(
