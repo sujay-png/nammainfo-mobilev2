@@ -229,7 +229,7 @@ class _CardFront extends StatelessWidget {
           const SizedBox(height: 12),
           Expanded(
             child: rows.isEmpty
-                ? Center(
+                ? const Center(
                     child: Text(
                       'No contact details yet',
                       style: TextStyle(color: AppColors.gray400, fontSize: 12),

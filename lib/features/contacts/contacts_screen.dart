@@ -38,7 +38,7 @@ String _initial(String? name) {
 class _ContactsScreenState extends ConsumerState<ContactsScreen> {
   String _query = '';
   String _folder = 'All';
-  Map<String, String?> _tags = {};
+  final Map<String, String?> _tags = {};
   List<String> _customFolders = [];
 
   @override

@@ -278,7 +278,7 @@ class _ServicesEditBody extends ConsumerStatefulWidget {
 }
 
 class _ServicesEditBodyState extends ConsumerState<_ServicesEditBody> {
-  late List<_ServiceDraft> _items =
+  late final List<_ServiceDraft> _items =
       widget.profile.services.map(_ServiceDraft.from).toList();
   bool _saving = false;
 
@@ -367,7 +367,7 @@ class _GalleryEditBody extends ConsumerStatefulWidget {
 }
 
 class _GalleryEditBodyState extends ConsumerState<_GalleryEditBody> {
-  late List<_GalleryDraft> _items =
+  late final List<_GalleryDraft> _items =
       widget.profile.gallery.map((g) => _GalleryDraft(url: g.imageUrl, label: g.label)).toList();
   bool _saving = false;
   bool _uploading = false;
@@ -484,7 +484,7 @@ class _SocialLinksEditBody extends ConsumerStatefulWidget {
 }
 
 class _SocialLinksEditBodyState extends ConsumerState<_SocialLinksEditBody> {
-  late List<_SocialDraft> _items = widget.profile.socialLinks.map(_SocialDraft.from).toList();
+  late final List<_SocialDraft> _items = widget.profile.socialLinks.map(_SocialDraft.from).toList();
   bool _saving = false;
 
   Future<void> _save() async {
@@ -586,7 +586,7 @@ class _BankingEditBody extends ConsumerStatefulWidget {
 }
 
 class _BankingEditBodyState extends ConsumerState<_BankingEditBody> {
-  late List<_BankDraft> _items = widget.profile.bankAccounts.map(_BankDraft.from).toList();
+  late final List<_BankDraft> _items = widget.profile.bankAccounts.map(_BankDraft.from).toList();
   bool _saving = false;
 
   Future<void> _save() async {

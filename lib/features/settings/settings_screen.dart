@@ -56,7 +56,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 20),
 
-          _SectionLabel('Card'),
+          const _SectionLabel('Card'),
           _SettingsTile(
             icon: Icons.credit_card_outlined,
             title: 'Order a new physical card',
@@ -65,7 +65,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
 
           const SizedBox(height: 20),
-          _SectionLabel('Appearance'),
+          const _SectionLabel('Appearance'),
           _SettingsTile(
             icon: Icons.light_mode_outlined,
             title: 'Light',
@@ -98,7 +98,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
 
           const SizedBox(height: 20),
-          _SectionLabel('Notifications'),
+          const _SectionLabel('Notifications'),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Push notifications'),
@@ -108,7 +108,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
 
           const SizedBox(height: 20),
-          _SectionLabel('Account'),
+          const _SectionLabel('Account'),
           _SettingsTile(
             icon: Icons.logout,
             title: 'Sign out',
